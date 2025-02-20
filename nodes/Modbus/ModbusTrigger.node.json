@@ -6,12 +6,12 @@
 	"resources": {
 		"credentialDocumentation": [
 			{
-				"url": "https://docs.n8n.io/integrations/builtin/credentials/mqtt/"
+				"url": "https://github.com/lostedz/n8n-nodes-modbus.git"
 			}
 		],
 		"primaryDocumentation": [
 			{
-				"url": "https://docs.n8n.io/integrations/builtin/trigger-nodes/n8n-nodes-base.mqtttrigger/"
+				"url": "https://github.com/lostedz/n8n-nodes-modbus.git"
 			}
 		]
 	}

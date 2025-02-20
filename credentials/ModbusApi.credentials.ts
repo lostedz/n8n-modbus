@@ -1,11 +1,11 @@
 import type { ICredentialType, INodeProperties } from 'n8n-workflow';
 
-export class Modbus implements ICredentialType {
-	name = 'modbus';
+export class ModbusApi implements ICredentialType {
+	name = 'modbusApi';
 
-	displayName = 'MODBUS';
+	displayName = 'MODBUS API';
 
-	documentationUrl = 'modbus';
+	documentationUrl = 'https://github.com/lostedz/n8n-nodes-modbus';
 
 	properties: INodeProperties[] = [
 		{

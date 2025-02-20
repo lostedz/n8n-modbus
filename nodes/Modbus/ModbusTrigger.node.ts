@@ -6,7 +6,7 @@ import type {
 	ITriggerResponse,
 	IRun,
 } from 'n8n-workflow';
-import { NodeConnectionType, NodeOperationError } from 'n8n-workflow';
+import { NodeOperationError } from 'n8n-workflow';
 import { createClient, type ModbusCredential } from './GenericFunctions';
 
 interface Options {
@@ -38,10 +38,11 @@ export class ModbusTrigger implements INodeType {
 				"Once you’ve finished building your workflow, <a data-key='activate'>activate</a> it to have it also listen continuously (you just won’t see those executions here).",
 		},
 		inputs: [],
-		outputs: [NodeConnectionType.Main],
+		//@ts-ignore
+		outputs: ['main'],
 		credentials: [
 			{
-				name: 'modbus',
+				name: 'modbusApi',
 				required: true,
 			},
 		],

@@ -1,19 +1,19 @@
 {
-	"name": "n8n-nodes-modbus",
+	"name": "n8n-nodes-modbus-trigger",
 	"version": "0.1.0",
-	"description": "",
+	"description": "n8n node to trigger Modbus Address on change",
 	"keywords": [
 		"n8n-community-node-package"
 	],
 	"license": "MIT",
 	"homepage": "",
 	"author": {
-		"name": "",
-		"email": ""
+		"name": "Alexandre Alves",
+		"email": "ajhalvs@gmail.com"
 	},
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/lostedz/n8n-nodes-modbus.git"
+		"url": "https://github.com/lostedz/n8n-modbus/"
 	},
 	"main": "index.js",
 	"scripts": {
@@ -30,12 +30,10 @@
 	"n8n": {
 		"n8nNodesApiVersion": 1,
 		"credentials": [
-			"dist/credentials/ExampleCredentialsApi.credentials.js",
-			"dist/credentials/HttpBinApi.credentials.js"
+			"dist/credentials/ModbusCredentialsApi.credentials.js"
 		],
 		"nodes": [
-			"dist/nodes/ExampleNode/ExampleNode.node.js",
-			"dist/nodes/HttpBin/HttpBin.node.js"
+			"dist/nodes/Modbus/ModbusTrigger.node.js"
 		]
 	},
 	"devDependencies": {
