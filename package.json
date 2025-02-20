@@ -1,6 +1,6 @@
 {
 	"name": "n8n-nodes-modbus-trigger",
-	"version": "0.1.0",
+	"version": "0.2.3",
 	"description": "n8n node to trigger Modbus Address on change",
 	"keywords": [
 		"n8n-community-node-package"
@@ -30,19 +30,19 @@
 	"n8n": {
 		"n8nNodesApiVersion": 1,
 		"credentials": [
-			"dist/credentials/ModbusCredentialsApi.credentials.js"
+			"dist/credentials/ModbusApi.credentials.js"
 		],
 		"nodes": [
 			"dist/nodes/Modbus/ModbusTrigger.node.js"
 		]
 	},
 	"devDependencies": {
-		"@typescript-eslint/parser": "~8.24.1",
-		"eslint-plugin-n8n-nodes-base": "^1.16.3",
-		"gulp": "^5.0.0",
-		"n8n-workflow": "^1.78.0",
-		"prettier": "^3.5.1",
-		"typescript": "~5.7.3"
+		"@typescript-eslint/parser": "~5.45",
+		"eslint-plugin-n8n-nodes-base": "^1.11.0",
+		"gulp": "^4.0.2",
+		"n8n-workflow": "*",
+		"prettier": "^2.7.1",
+		"typescript": "~4.8.4"
 	},
 	"peerDependencies": {
 		"n8n-workflow": "*"

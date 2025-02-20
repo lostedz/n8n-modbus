@@ -8,6 +8,7 @@ import type {
 } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
 import { createClient, type ModbusCredential } from './GenericFunctions';
+import { TCPStream } from 'modbus-stream';
 
 interface Options {
 	jsonParseBody: boolean;
@@ -50,8 +51,8 @@ export class ModbusTrigger implements INodeType {
 			{
 				displayName: 'Memory Address',
 				name: 'memoryAddress',
-				type: 'string',
-				default: '',
+				type: 'number',
+				default: 1,
 				description: 'The memory address (register index) to read from',
 			},
 			{
@@ -62,112 +63,117 @@ export class ModbusTrigger implements INodeType {
 				description: 'The number of registers to read from the memory address',
 			},
 			{
+				displayName: 'Polling',
+				name: 'polling',
+				type: 'number',
+				default: 1000,
+				description: 'The polling interval in milliseconds',
+			},
+			{
 				displayName: 'Options',
 				name: 'options',
 				type: 'collection',
 				placeholder: 'Add option',
 				default: {},
-				options: [
-					{
-						displayName: 'JSON Parse Body',
-						name: 'jsonParseBody',
-						type: 'boolean',
-						default: false,
-						description: 'Whether to try parse the message to an object',
-					},
-				],
+				options: [],
 			},
 		],
 	};
 
 	async trigger(this: ITriggerFunctions): Promise<ITriggerResponse> {
-		let poller: any;
+		let poller: NodeJS.Timeout;
+		let client: TCPStream;
 
-		const credentials = await this.getCredentials<ModbusCredential>('modbus');
-		const memoryAddress = this.getNodeParameter('memoryAddress') as string;
-		const quantity = this.getNodeParameter('quantity') as number;
-		const options = this.getNodeParameter('options') as Options;
+		try {
+			const credentials = await this.getCredentials<ModbusCredential>('modbusApi');
+			const memoryAddress = this.getNodeParameter('memoryAddress') as number;
+			const quantity = this.getNodeParameter('quantity') as number;
+			const polling = this.getNodeParameter('polling') as number;
+			const options = this.getNodeParameter('options') as Options;
 
-		// Parse the memory address as an integer
-		const address = parseInt(memoryAddress, 10);
-		if (isNaN(address)) {
-			throw new NodeOperationError(this.getNode(), 'Memory address must be a valid number.');
-		}
+			// Parse the memory address as an integer
+			if (isNaN(memoryAddress)) {
+				throw new NodeOperationError(this.getNode(), 'Memory address must be a valid number.');
+			}
 
-		// Connect to the MODBUS TCP device using modbus-stream
-		const client = await createClient(credentials);
+			// Connect to the MODBUS TCP device
+			client = await createClient(credentials);
 
-		// const parsePayload = (topic: string, payload: Buffer) => {
-		// 	let message = payload.toString();
+			const compareBuffers = (buf1?: Buffer[], buf2?: Buffer[]) => {
+				if (!buf1 || !buf2 || buf1.length !== buf2.length) return false;
+				return buf1.every((b, i) => b.equals(buf2[i]));
+			};
 
-		// 	if (options.jsonParseBody) {
-		// 		try {
-		// 			message = JSON.parse(message);
-		// 		} catch (e) {}
-		// 	}
+			if (this.getMode() === 'trigger') {
+				const donePromise = !options.parallelProcessing
+					? this.helpers.createDeferredPromise<IRun>()
+					: undefined;
 
-		// 	let result: IDataObject = { message, topic };
+				let previousData: Buffer[] | undefined;
 
-		// 	return [this.helpers.returnJsonArray([result])];
-		// };
+				// Start polling for changes
+				poller = setInterval(() => {
+					client.readHoldingRegisters({ address: memoryAddress, quantity }, (err, data) => {
+						if (err) {
+							clearInterval(poller);
+							throw new NodeOperationError(this.getNode(), err.message);
+						}
 
-		if (this.getMode() === 'trigger') {
-			const donePromise = !options.parallelProcessing
-				? this.helpers.createDeferredPromise<IRun>()
-				: undefined;
+						if (!compareBuffers(previousData, data?.response.data)) {
+							previousData = data?.response.data;
+							const returnData: IDataObject = {
+								data: previousData?.map((value) => value.readInt16BE(0)),
+							};
 
-			const pollingInterval = 1000; // Poll every 1000ms (adjust as necessary)
-			let previousData: number | undefined;
+							this.emit([this.helpers.returnJsonArray([returnData])]);
+							if (donePromise) {
+								donePromise.promise;
+							}
+						}
+					});
+				}, polling);
+			}
 
-			// Start polling for changes
-			poller = setInterval(() => {
-				client.readHoldingRegisters({ address, quantity }, (err, data) => {
-					if (err) {
-						throw new NodeOperationError(this.getNode(), err.message);
-					}
+			const manualTriggerFunction = async () => {
+				return new Promise<void>((resolve, reject) => {
+					let cycle = 0;
+					let previousData: Buffer[] | undefined;
 
-					//Check if data has changed
-					if (!previousData || previousData !== data?.response.data[0].readInt16BE(0)) {
-						previousData = data?.response.data[0].readInt16BE(0);
-						const returnData: IDataObject = {
-							data: data?.response.data[0].readInt16BE(0),
-						};
+					poller = setInterval(() => {
+						client.readHoldingRegisters({ address: memoryAddress, quantity }, (err, data) => {
+							if (err) {
+								clearInterval(poller);
+								reject(new NodeOperationError(this.getNode(), err.message));
+								return;
+							}
 
-						this.emit([this.helpers.returnJsonArray([returnData])]);
-						donePromise?.promise;
-					}
+							if (!compareBuffers(previousData, data?.response.data) || cycle === 0) {
+								previousData = data?.response.data;
+								if (cycle > 0) {
+									const returnData: IDataObject = {
+										data: previousData?.map((value) => value.readInt16BE(0)),
+									};
+									this.emit([this.helpers.returnJsonArray([returnData])]);
+									clearInterval(poller);
+									resolve();
+								}
+								cycle++;
+							}
+						});
+					}, polling);
 				});
-			}, pollingInterval);
+			};
+
+			const closeFunction = async () => {
+				clearInterval(poller);
+			};
+
+			return {
+				closeFunction,
+				manualTriggerFunction,
+			};
+		} catch (error) {
+			throw error;
 		}
-
-		const manualTriggerFunction = async () =>
-			await new Promise<void>((resolve) => {
-				// Listen to the MODBUS device for
-				client.readHoldingRegisters({ address, quantity }, (err, data) => {
-					if (err) {
-						throw new NodeOperationError(this.getNode(), err.message);
-					}
-
-					const returnData: IDataObject = {
-						// convert the Buffer to readable data
-						data: data?.response.data[0].readInt16BE(0),
-					};
-
-					this.emit([this.helpers.returnJsonArray([returnData])]);
-
-					resolve();
-				});
-			});
-
-		// Return the stop function to stop the poller and close the connection
-		async function closeFunction() {
-			// Close the connection to the MODBUS device
-			clearInterval(poller);
-		}
-
-		return {
-			closeFunction,
-			manualTriggerFunction,
-		};
 	}
 }

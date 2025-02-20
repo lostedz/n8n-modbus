@@ -1,1 +1,33 @@
-<xml xmlns="https://developers.google.com/blockly/xml"><variables><variable id="Ggnei.Mdx6Ar]/4%i6,m">test</variable></variables><block type="modbusclient" id="22TkTbzToVWE_B?;f@uI" x="16" y="8"><field name="name">c1</field><field name="ip">127.0.0.1</field><field name="port">5020</field><field name="id">1</field><field name="scan">5</field><statement name="cmd"><block type="variables_set" id="{v^|+or:Qk*]?Y%lnl,_"><field name="VAR" id="Ggnei.Mdx6Ar]/4%i6,m">test</field><value name="VALUE"><block type="math_number" id="j^[)J#(PHQUHlL:P)T.]"><field name="NUM">22</field></block></value><next><block type="modbuswrite" id="IFvWHFW`+dPHX+^r;16#"><field name="cmd">06</field><field name="address">1</field><value name="list"><block type="variables_get" id="UN*U*m|dqylrsW.aD]Ay"><field name="VAR" id="Ggnei.Mdx6Ar]/4%i6,m">test</field></block></value></block></next></block></statement></block></xml>
+<xml xmlns="https://developers.google.com/blockly/xml">
+    <variables>
+        <variable id="Ggnei.Mdx6Ar]/4%i6,m">test</variable>
+    </variables>
+    <block type="modbusclient" id="22TkTbzToVWE_B?;f@uI" x="16" y="8">
+        <field name="name">c1</field>
+        <field name="ip">127.0.0.1</field>
+        <field name="port">5020</field>
+        <field name="id">1</field>
+        <field name="scan">5</field>
+        <statement name="cmd">
+            <block type="variables_set" id="{v^|+or:Qk*]?Y%lnl,_">
+                <field name="VAR" id="Ggnei.Mdx6Ar]/4%i6,m">test</field>
+                <value name="VALUE">
+                    <block type="math_number" id="j^[)J#(PHQUHlL:P)T.]">
+                        <field name="NUM">13</field>
+                    </block>
+                </value>
+                <next>
+                    <block type="modbuswrite" id="IFvWHFW`+dPHX+^r;16#">
+                        <field name="cmd">06</field>
+                        <field name="address">1</field>
+                        <value name="list">
+                            <block type="variables_get" id="UN*U*m|dqylrsW.aD]Ay">
+                                <field name="VAR" id="Ggnei.Mdx6Ar]/4%i6,m">test</field>
+                            </block>
+                        </value>
+                    </block>
+                </next>
+            </block>
+        </statement>
+    </block>
+</xml>

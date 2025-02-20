@@ -13,18 +13,13 @@ export const createClient = async (credentials: ModbusCredential): Promise<modbu
 	const { host, port, timeout = 5000 } = credentials;
 
 	return new Promise((resolve, reject) => {
-		modbus.tcp.connect(
-			port,
-			host,
-			{ debug: 'automation-2454', connectTimeout: timeout },
-			(err, client) => {
-				if (err) {
-					reject(new ApplicationError(err.message));
-					return;
-				}
+		modbus.tcp.connect(port, host, { debug: null, connectTimeout: timeout }, (err, client) => {
+			if (err) {
+				reject(new ApplicationError(err.message));
+				return;
+			}
 
-				resolve(client);
-			},
-		);
+			resolve(client);
+		});
 	});
 };

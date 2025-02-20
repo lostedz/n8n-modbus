@@ -14,7 +14,7 @@ export class ModbusApi implements ICredentialType {
 			type: 'options',
 			options: [
 				{
-					name: 'Modbus',
+					name: 'modbus',
 					value: 'tcp',
 				},
 			],
