@@ -5,7 +5,7 @@ import type {
 	INodeExecutionData,
 	IDataObject,
 } from 'n8n-workflow';
-import { NodeConnectionType, NodeOperationError } from 'n8n-workflow';
+import { NodeOperationError } from 'n8n-workflow';
 import { createClient, type ModbusCredential } from './GenericFunctions';
 
 export class Modbus implements INodeType {
@@ -21,8 +21,10 @@ export class Modbus implements INodeType {
 			name: 'MODBUS',
 		},
 		usableAsTool: true,
-		inputs: [NodeConnectionType.Main],
-		outputs: [NodeConnectionType.Main],
+		//@ts-ignore
+		inputs: ['main'],
+		//@ts-ignore
+		outputs: ['main'],
 		credentials: [
 			{
 				name: 'modbusApi',
@@ -45,7 +47,7 @@ export class Modbus implements INodeType {
 					},
 				],
 				default: 'read',
-				description: 'The operation to perform in the modbus device',
+				noDataExpression: true,
 			},
 			{
 				displayName: 'Memory Address',
