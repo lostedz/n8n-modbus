@@ -1,6 +1,6 @@
 {
 	"name": "n8n-nodes-modbus-trigger",
-	"version": "0.2.3",
+	"version": "0.2.4",
 	"description": "n8n node to trigger Modbus Address on change",
 	"keywords": [
 		"n8n-community-node-package"
