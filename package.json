@@ -33,7 +33,8 @@
 			"dist/credentials/ModbusApi.credentials.js"
 		],
 		"nodes": [
-			"dist/nodes/Modbus/ModbusTrigger.node.js"
+			"dist/nodes/Modbus/ModbusTrigger.node.js",
+			"dist/nodes/Modbus/Modbus.node.js"
 		]
 	},
 	"devDependencies": {
