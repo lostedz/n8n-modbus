@@ -9,6 +9,7 @@ import type {
 import { NodeOperationError } from 'n8n-workflow';
 import { createClient, type ModbusCredential } from './GenericFunctions';
 import { TCPStream } from 'modbus-stream';
+import { ModbusDataType } from './types';
 
 interface Options {
 	jsonParseBody: boolean;
@@ -56,6 +57,30 @@ export class ModbusTrigger implements INodeType {
 				description: 'The memory address (register index) to read from',
 			},
 			{
+				displayName: 'Unit-ID',
+				name: 'unitId',
+				type: 'number',
+				default: 1,
+				description: 'Unit-ID to address devices behind modbus-bridges',
+			},
+			{
+				displayName: 'Data Type',
+				name: 'type',
+				type: 'options',
+				options: [
+					{
+						name: 'Signed Integer',
+						value: 'int16',
+					},
+					{
+						name: 'Unsigned Integer',
+						value: 'uint32',
+					},
+				],
+				default: 'int16',
+				noDataExpression: true,
+			},
+			{
 				displayName: 'Quantity',
 				name: 'quantity',
 				type: 'number',
@@ -87,6 +112,8 @@ export class ModbusTrigger implements INodeType {
 		try {
 			const credentials = await this.getCredentials<ModbusCredential>('modbusApi');
 			const memoryAddress = this.getNodeParameter('memoryAddress') as number;
+			const unitId = this.getNodeParameter('unitId', 1);
+			const dataType = this.getNodeParameter('type', 'int16') as ModbusDataType;
 			const quantity = this.getNodeParameter('quantity') as number;
 			const polling = this.getNodeParameter('polling') as number;
 			const options = this.getNodeParameter('options') as Options;
@@ -113,24 +140,34 @@ export class ModbusTrigger implements INodeType {
 
 				// Start polling for changes
 				poller = setInterval(() => {
-					client.readHoldingRegisters({ address: memoryAddress, quantity }, (err, data) => {
-						if (err) {
-							clearInterval(poller);
-							throw new NodeOperationError(this.getNode(), err.message);
-						}
-
-						if (!compareBuffers(previousData, data?.response.data)) {
-							previousData = data?.response.data;
-							const returnData: IDataObject = {
-								data: previousData?.map((value) => value.readInt16BE(0)),
-							};
-
-							this.emit([this.helpers.returnJsonArray([returnData])]);
-							if (donePromise) {
-								donePromise.promise;
+					client.readHoldingRegisters(
+						{ address: memoryAddress, quantity, extra: { unitId } },
+						(err, data) => {
+							if (err) {
+								clearInterval(poller);
+								throw new NodeOperationError(this.getNode(), err.message);
 							}
-						}
-					});
+
+							if (!compareBuffers(previousData, data?.response.data)) {
+								previousData = data?.response.data;
+								const returnData: IDataObject = {
+									data: previousData?.map((value) => {
+										switch (dataType) {
+											case 'int16':
+												return value.readInt16BE();
+											case 'uint16':
+												return value.readUInt16BE();
+										}
+									}),
+								};
+
+								this.emit([this.helpers.returnJsonArray([returnData])]);
+								if (donePromise) {
+									donePromise.promise;
+								}
+							}
+						},
+					);
 				}, polling);
 			}
 

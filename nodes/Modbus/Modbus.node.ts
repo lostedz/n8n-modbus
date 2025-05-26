@@ -7,6 +7,7 @@ import type {
 } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
 import { createClient, type ModbusCredential } from './GenericFunctions';
+import { ModbusDataType } from './types';
 
 export class Modbus implements INodeType {
 	description: INodeTypeDescription = {
@@ -57,6 +58,30 @@ export class Modbus implements INodeType {
 				description: 'The memory address (register index) to read from or write to',
 			},
 			{
+				displayName: 'Unit-ID',
+				name: 'unitId',
+				type: 'number',
+				default: 1,
+				description: 'Unit-ID to address devices behind modbus-bridges',
+			},
+			{
+				displayName: 'Data Type',
+				name: 'type',
+				type: 'options',
+				options: [
+					{
+						name: 'Signed Integer',
+						value: 'int16',
+					},
+					{
+						name: 'Unsigned Integer',
+						value: 'uint32',
+					},
+				],
+				default: 'int16',
+				noDataExpression: true,
+			},
+			{
 				displayName: 'Quantity',
 				displayOptions: {
 					show: {
@@ -94,22 +119,31 @@ export class Modbus implements INodeType {
 
 		const memoryAddress = this.getNodeParameter('memoryAddress', 0) as number;
 		const operation = this.getNodeParameter('operation', 0) as string;
+		const unitId = this.getNodeParameter('unitId', 0, 1) as number;
+		const dataType = this.getNodeParameter('type', 0, 'int16') as ModbusDataType;
 
 		if (operation === 'read') {
 			const quantity = this.getNodeParameter('quantity', 0) as number;
-			await new Promise((resolve) => {
-				client.readHoldingRegisters({ address: memoryAddress, quantity }, (err, data) => {
-					if (err) {
-						throw new NodeOperationError(this.getNode(), 'MODBUS Error: ' + err.message);
-					}
+			responseData = await new Promise<IDataObject>((resolve) => {
+				client.readHoldingRegisters(
+					{ address: memoryAddress, quantity, extra: { unitId } },
+					(err, data) => {
+						if (err) {
+							throw new NodeOperationError(this.getNode(), 'MODBUS Error: ' + err.message);
+						}
 
-					const returnData: IDataObject = {
-						data: data?.response.data?.map((value) => value.readInt16BE(0)),
-					};
-
-					responseData = returnData;
-					resolve(responseData);
-				});
+						resolve({
+							data: data?.response.data?.map((value) => {
+								switch (dataType) {
+									case 'int16':
+										return value.readInt16BE();
+									case 'uint16':
+										return value.readUInt16BE();
+								}
+							}),
+						});
+					},
+				);
 			});
 		}
 
@@ -117,21 +151,27 @@ export class Modbus implements INodeType {
 			const value = this.getNodeParameter('value', 0) as number;
 
 			const buffer = Buffer.alloc(2);
-			buffer.writeInt16BE(value);
+			switch (dataType) {
+				case 'int16':
+					buffer.writeInt16BE(value);
+					break;
+				case 'uint16':
+					buffer.writeUInt16BE(value);
+			}
 
-			await new Promise((resolve) => {
-				client.writeSingleRegister({ address: memoryAddress, value: buffer }, (err, data) => {
-					if (err) {
-						throw new NodeOperationError(this.getNode(), 'MODBUS Error: ' + err.message);
-					}
+			responseData = await new Promise<IDataObject>((resolve) => {
+				client.writeSingleRegister(
+					{ address: memoryAddress, value: buffer, extra: { unitId } },
+					(err, data) => {
+						if (err) {
+							throw new NodeOperationError(this.getNode(), 'MODBUS Error: ' + err.message);
+						}
 
-					const returnData: IDataObject = {
-						data: data.response,
-					};
-
-					responseData = returnData;
-					resolve(responseData);
-				});
+						resolve({
+							data: data.response,
+						});
+					},
+				);
 			});
 		}
 
