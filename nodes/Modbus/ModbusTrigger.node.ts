@@ -7,7 +7,7 @@ import type {
 	IRun,
 } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
-import { createClient, type ModbusCredential } from './GenericFunctions';
+import { createClient, extractModbusData, type ModbusCredential } from './GenericFunctions';
 import { TCPStream } from 'modbus-stream';
 import { ModbusDataType } from './types';
 
@@ -65,16 +65,32 @@ export class ModbusTrigger implements INodeType {
 			},
 			{
 				displayName: 'Data Type',
-				name: 'type',
+				name: 'dataType',
 				type: 'options',
 				options: [
 					{
-						name: 'Signed Integer',
+						name: 'Signed 16-Bit Integer',
 						value: 'int16',
 					},
 					{
-						name: 'Unsigned Integer',
+						name: 'Unsigned 16-Bit Integer',
+						value: 'uint16',
+					},
+					{
+						name: 'Signed 32-Bit Integer',
+						value: 'int32',
+					},
+					{
+						name: 'Unsigned 32-Bit Integer',
 						value: 'uint32',
+					},
+					{
+						name: 'Signed 64-Bit Big-Integer',
+						value: 'int64',
+					},
+					{
+						name: 'Unsigned 64-Bit Big-Integer',
+						value: 'uint64',
 					},
 				],
 				default: 'int16',
@@ -85,7 +101,7 @@ export class ModbusTrigger implements INodeType {
 				name: 'quantity',
 				type: 'number',
 				default: 1,
-				description: 'The number of registers to read from the memory address',
+				description: 'The number of data to read from the memory address',
 			},
 			{
 				displayName: 'Polling',
@@ -113,7 +129,7 @@ export class ModbusTrigger implements INodeType {
 			const credentials = await this.getCredentials<ModbusCredential>('modbusApi');
 			const memoryAddress = this.getNodeParameter('memoryAddress') as number;
 			const unitId = this.getNodeParameter('unitId', 1);
-			const dataType = this.getNodeParameter('type', 'int16') as ModbusDataType;
+			const dataType = this.getNodeParameter('dataType', 'int16') as ModbusDataType;
 			const quantity = this.getNodeParameter('quantity') as number;
 			const polling = this.getNodeParameter('polling') as number;
 			const options = this.getNodeParameter('options') as Options;
@@ -151,14 +167,9 @@ export class ModbusTrigger implements INodeType {
 							if (!compareBuffers(previousData, data?.response.data)) {
 								previousData = data?.response.data;
 								const returnData: IDataObject = {
-									data: previousData?.map((value) => {
-										switch (dataType) {
-											case 'int16':
-												return value.readInt16BE();
-											case 'uint16':
-												return value.readUInt16BE();
-										}
-									}),
+									data: previousData
+										? extractModbusData(this.getNode(), previousData, dataType)
+										: undefined,
 								};
 
 								this.emit([this.helpers.returnJsonArray([returnData])]);
