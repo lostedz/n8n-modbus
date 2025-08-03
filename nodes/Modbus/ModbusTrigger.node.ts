@@ -7,8 +7,9 @@ import type {
 	IRun,
 } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
-import { createClient, type ModbusCredential } from './GenericFunctions';
+import { createClient, extractModbusData, type ModbusCredential } from './GenericFunctions';
 import { TCPStream } from 'modbus-stream';
+import { ModbusDataType } from './types';
 
 interface Options {
 	jsonParseBody: boolean;
@@ -56,11 +57,51 @@ export class ModbusTrigger implements INodeType {
 				description: 'The memory address (register index) to read from',
 			},
 			{
+				displayName: 'Unit-ID',
+				name: 'unitId',
+				type: 'number',
+				default: 1,
+				description: 'Unit-ID to address devices behind modbus-bridges',
+			},
+			{
+				displayName: 'Data Type',
+				name: 'dataType',
+				type: 'options',
+				options: [
+					{
+						name: 'Signed 16-Bit Integer',
+						value: 'int16',
+					},
+					{
+						name: 'Unsigned 16-Bit Integer',
+						value: 'uint16',
+					},
+					{
+						name: 'Signed 32-Bit Integer',
+						value: 'int32',
+					},
+					{
+						name: 'Unsigned 32-Bit Integer',
+						value: 'uint32',
+					},
+					{
+						name: 'Signed 64-Bit Big-Integer',
+						value: 'int64',
+					},
+					{
+						name: 'Unsigned 64-Bit Big-Integer',
+						value: 'uint64',
+					},
+				],
+				default: 'int16',
+				noDataExpression: true,
+			},
+			{
 				displayName: 'Quantity',
 				name: 'quantity',
 				type: 'number',
 				default: 1,
-				description: 'The number of registers to read from the memory address',
+				description: 'The number of data to read from the memory address',
 			},
 			{
 				displayName: 'Polling',
@@ -87,6 +128,8 @@ export class ModbusTrigger implements INodeType {
 		try {
 			const credentials = await this.getCredentials<ModbusCredential>('modbusApi');
 			const memoryAddress = this.getNodeParameter('memoryAddress') as number;
+			const unitId = this.getNodeParameter('unitId', 1);
+			const dataType = this.getNodeParameter('dataType', 'int16') as ModbusDataType;
 			const quantity = this.getNodeParameter('quantity') as number;
 			const polling = this.getNodeParameter('polling') as number;
 			const options = this.getNodeParameter('options') as Options;
@@ -113,24 +156,29 @@ export class ModbusTrigger implements INodeType {
 
 				// Start polling for changes
 				poller = setInterval(() => {
-					client.readHoldingRegisters({ address: memoryAddress, quantity }, (err, data) => {
-						if (err) {
-							clearInterval(poller);
-							throw new NodeOperationError(this.getNode(), err.message);
-						}
-
-						if (!compareBuffers(previousData, data?.response.data)) {
-							previousData = data?.response.data;
-							const returnData: IDataObject = {
-								data: previousData?.map((value) => value.readInt16BE(0)),
-							};
-
-							this.emit([this.helpers.returnJsonArray([returnData])]);
-							if (donePromise) {
-								donePromise.promise;
+					client.readHoldingRegisters(
+						{ address: memoryAddress, quantity, extra: { unitId } },
+						(err, data) => {
+							if (err) {
+								clearInterval(poller);
+								throw new NodeOperationError(this.getNode(), err.message);
 							}
-						}
-					});
+
+							if (!compareBuffers(previousData, data?.response.data)) {
+								previousData = data?.response.data;
+								const returnData: IDataObject = {
+									data: previousData
+										? extractModbusData(this.getNode(), previousData, dataType)
+										: undefined,
+								};
+
+								this.emit([this.helpers.returnJsonArray([returnData])]);
+								if (donePromise) {
+									donePromise.promise;
+								}
+							}
+						},
+					);
 				}, polling);
 			}
 

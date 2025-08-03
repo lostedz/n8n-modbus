@@ -6,7 +6,13 @@ import type {
 	IDataObject,
 } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
-import { createClient, type ModbusCredential } from './GenericFunctions';
+import {
+	createClient,
+	extractModbusData,
+	type ModbusCredential,
+	registerCount,
+} from './GenericFunctions';
+import { ModbusDataType } from './types';
 
 export class Modbus implements INodeType {
 	description: INodeTypeDescription = {
@@ -57,6 +63,81 @@ export class Modbus implements INodeType {
 				description: 'The memory address (register index) to read from or write to',
 			},
 			{
+				displayName: 'Unit-ID',
+				name: 'unitId',
+				type: 'number',
+				default: 1,
+				description: 'Unit-ID to address devices behind modbus-bridges',
+			},
+			{
+				displayName: 'Data Type',
+				name: 'dataTypeRead',
+				type: 'options',
+				displayOptions: {
+					show: {
+						operation: ['read'],
+					},
+				},
+				options: [
+					{
+						name: 'Signed 16-Bit Integer',
+						value: 'int16',
+					},
+					{
+						name: 'Unsigned 16-Bit Integer',
+						value: 'uint16',
+					},
+					{
+						name: 'Signed 32-Bit Integer',
+						value: 'int32',
+					},
+					{
+						name: 'Unsigned 32-Bit Integer',
+						value: 'uint32',
+					},
+					{
+						name: 'Signed 64-Bit Big-Integer',
+						value: 'int64',
+					},
+					{
+						name: 'Unsigned 64-Bit Big-Integer',
+						value: 'uint64',
+					},
+				],
+				default: 'int16',
+				noDataExpression: true,
+			},
+			{
+				displayName: 'Data Type',
+				name: 'dataTypeWrite',
+				type: 'options',
+				displayOptions: {
+					show: {
+						operation: ['write'],
+					},
+				},
+				options: [
+					{
+						name: 'Signed 16-Bit Integer',
+						value: 'int16',
+					},
+					{
+						name: 'Unsigned 16-Bit Integer',
+						value: 'uint16',
+					},
+					{
+						name: 'Signed 32-Bit Integer',
+						value: 'int32',
+					},
+					{
+						name: 'Unsigned 32-Bit Integer',
+						value: 'uint32',
+					},
+				],
+				default: 'int16',
+				noDataExpression: true,
+			},
+			{
 				displayName: 'Quantity',
 				displayOptions: {
 					show: {
@@ -66,7 +147,7 @@ export class Modbus implements INodeType {
 				name: 'quantity',
 				type: 'number',
 				default: 1,
-				description: 'The number of registers to read from',
+				description: 'The number of data to read from the memory address',
 			},
 			{
 				displayName: 'Value',
@@ -78,8 +159,8 @@ export class Modbus implements INodeType {
 				name: 'value',
 				type: 'number',
 				typeOptions: {
-					maxValue: 32767,
-					minValue: -32768,
+					maxValue: 4294967295,
+					minValue: -2147483648,
 				},
 				default: 1,
 				description: 'The value to write to the memory address',
@@ -94,44 +175,120 @@ export class Modbus implements INodeType {
 
 		const memoryAddress = this.getNodeParameter('memoryAddress', 0) as number;
 		const operation = this.getNodeParameter('operation', 0) as string;
+		const unitId = this.getNodeParameter('unitId', 0, 1) as number;
+		const dataType = this.getNodeParameter(
+			operation === 'read' ? 'dataTypeRead' : 'dataTypeWrite',
+			0,
+			'int16',
+		) as ModbusDataType;
 
 		if (operation === 'read') {
 			const quantity = this.getNodeParameter('quantity', 0) as number;
-			await new Promise((resolve) => {
-				client.readHoldingRegisters({ address: memoryAddress, quantity }, (err, data) => {
-					if (err) {
-						throw new NodeOperationError(this.getNode(), 'MODBUS Error: ' + err.message);
-					}
+			responseData = await new Promise<IDataObject>((resolve) => {
+				client.readHoldingRegisters(
+					{
+						address: memoryAddress,
+						quantity: quantity * registerCount(dataType),
+						extra: { unitId },
+					},
+					(err, data) => {
+						if (err) {
+							throw new NodeOperationError(this.getNode(), 'MODBUS Error: ' + err.message);
+						}
+						const registers = data?.response.data;
+						if (!registers) {
+							throw new NodeOperationError(this.getNode(), 'MODBUS Error: received no data');
+						}
 
-					const returnData: IDataObject = {
-						data: data?.response.data?.map((value) => value.readInt16BE(0)),
-					};
-
-					responseData = returnData;
-					resolve(responseData);
-				});
+						resolve({
+							data: extractModbusData(this.getNode(), registers, dataType),
+						});
+					},
+				);
 			});
 		}
 
 		if (operation === 'write') {
 			const value = this.getNodeParameter('value', 0) as number;
-
-			const buffer = Buffer.alloc(2);
-			buffer.writeInt16BE(value);
-
-			await new Promise((resolve) => {
-				client.writeSingleRegister({ address: memoryAddress, value: buffer }, (err, data) => {
-					if (err) {
-						throw new NodeOperationError(this.getNode(), 'MODBUS Error: ' + err.message);
+			const buffer = Buffer.alloc(registerCount(dataType) * 2);
+			switch (dataType) {
+				case 'int16':
+					if (value > 32767 || value < 32768) {
+						throw new NodeOperationError(
+							this.getNode(),
+							'MODBUS Error: value does not fit into selected data type',
+						);
 					}
+					buffer.writeInt16BE(value);
+					break;
+				case 'uint16':
+					if (value > 65535 || value < 0) {
+						throw new NodeOperationError(
+							this.getNode(),
+							'MODBUS Error: value does not fit into selected data type',
+						);
+					}
+					buffer.writeUInt16BE(value);
+					break;
+				case 'int32':
+					if (value > 2147483647 || value < -2147483648) {
+						throw new NodeOperationError(
+							this.getNode(),
+							'MODBUS Error: value does not fit into selected data type',
+						);
+					}
+					buffer.writeInt16BE(value);
+					break;
+				case 'uint32':
+					if (value > 4294967295 || value < 0) {
+						throw new NodeOperationError(
+							this.getNode(),
+							'MODBUS Error: value does not fit into selected data type',
+						);
+					}
+					buffer.writeUInt16BE(value);
+					break;
+				default:
+					throw new NodeOperationError(
+						this.getNode(),
+						`MODBUS Error: Not implemented for data type ${dataType}`,
+					);
+			}
 
-					const returnData: IDataObject = {
-						data: data.response,
-					};
+			responseData = await new Promise<IDataObject>((resolve) => {
+				const values: Buffer[] = [];
+				for (let i = 0; i < registerCount(dataType); i++) {
+					const buf = Buffer.alloc(2);
+					buffer.copy(buf, 0, i * 2, i * 2 + 2);
+					values.push(buf);
+				}
+				if (values.length === 1) {
+					client.writeSingleRegister(
+						{ address: memoryAddress, value: values[0], extra: { unitId } },
+						(err, data) => {
+							if (err) {
+								throw new NodeOperationError(this.getNode(), 'MODBUS Error: ' + err.message);
+							}
 
-					responseData = returnData;
-					resolve(responseData);
-				});
+							resolve({
+								data: data.response,
+							});
+						},
+					);
+				} else {
+					client.writeMultipleRegisters(
+						{ address: memoryAddress, values, extra: { unitId } },
+						(err, data) => {
+							if (err) {
+								throw new NodeOperationError(this.getNode(), 'MODBUS Error: ' + err.message);
+							}
+
+							resolve({
+								data: data.response,
+							});
+						},
+					);
+				}
 			});
 		}
 
