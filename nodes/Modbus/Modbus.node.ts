@@ -84,20 +84,20 @@ export class Modbus implements INodeType {
 						value: 'int16',
 					},
 					{
-						name: 'Unsigned 16-Bit Integer',
-						value: 'uint16',
-					},
-					{
 						name: 'Signed 32-Bit Integer',
 						value: 'int32',
 					},
 					{
-						name: 'Unsigned 32-Bit Integer',
-						value: 'uint32',
-					},
-					{
 						name: 'Signed 64-Bit Big-Integer',
 						value: 'int64',
+					},
+					{
+						name: 'Unsigned 16-Bit Integer',
+						value: 'uint16',
+					},
+					{
+						name: 'Unsigned 32-Bit Integer',
+						value: 'uint32',
 					},
 					{
 						name: 'Unsigned 64-Bit Big-Integer',
@@ -122,12 +122,12 @@ export class Modbus implements INodeType {
 						value: 'int16',
 					},
 					{
-						name: 'Unsigned 16-Bit Integer',
-						value: 'uint16',
-					},
-					{
 						name: 'Signed 32-Bit Integer',
 						value: 'int32',
+					},
+					{
+						name: 'Unsigned 16-Bit Integer',
+						value: 'uint16',
 					},
 					{
 						name: 'Unsigned 32-Bit Integer',
@@ -213,7 +213,7 @@ export class Modbus implements INodeType {
 			const buffer = Buffer.alloc(registerCount(dataType) * 2);
 			switch (dataType) {
 				case 'int16':
-					if (value > 32767 || value < 32768) {
+					if (value > 32767 || value < -32768) {
 						throw new NodeOperationError(
 							this.getNode(),
 							'MODBUS Error: value does not fit into selected data type',
@@ -237,7 +237,7 @@ export class Modbus implements INodeType {
 							'MODBUS Error: value does not fit into selected data type',
 						);
 					}
-					buffer.writeInt16BE(value);
+					buffer.writeInt32BE(value);
 					break;
 				case 'uint32':
 					if (value > 4294967295 || value < 0) {
@@ -246,7 +246,7 @@ export class Modbus implements INodeType {
 							'MODBUS Error: value does not fit into selected data type',
 						);
 					}
-					buffer.writeUInt16BE(value);
+					buffer.writeUInt32BE(value);
 					break;
 				default:
 					throw new NodeOperationError(

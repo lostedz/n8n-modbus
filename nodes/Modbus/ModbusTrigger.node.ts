@@ -73,20 +73,20 @@ export class ModbusTrigger implements INodeType {
 						value: 'int16',
 					},
 					{
-						name: 'Unsigned 16-Bit Integer',
-						value: 'uint16',
-					},
-					{
 						name: 'Signed 32-Bit Integer',
 						value: 'int32',
 					},
 					{
-						name: 'Unsigned 32-Bit Integer',
-						value: 'uint32',
-					},
-					{
 						name: 'Signed 64-Bit Big-Integer',
 						value: 'int64',
+					},
+					{
+						name: 'Unsigned 16-Bit Integer',
+						value: 'uint16',
+					},
+					{
+						name: 'Unsigned 32-Bit Integer',
+						value: 'uint32',
 					},
 					{
 						name: 'Unsigned 64-Bit Big-Integer',
